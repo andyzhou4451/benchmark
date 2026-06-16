@@ -5,11 +5,8 @@ The script intentionally uses only the Python standard library so it can run on
 login nodes without installing `huggingface_hub`, `gcsfs`, or `requests`.
 """
 
-from __future__ import annotations
-
 import argparse
 import contextlib
-import dataclasses
 import http.cookiejar
 import os
 import shutil
@@ -20,27 +17,41 @@ import urllib.parse
 import urllib.request
 import zipfile
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, List, Optional, Tuple
 
 
 DEFAULT_HF_ENDPOINT = os.environ.get("HF_ENDPOINT", "https://huggingface.co").rstrip("/")
 DEFAULT_ROOT = Path(os.environ.get("NWP_WEIGHTS_ROOT", "assets/weights"))
 
 
-@dataclasses.dataclass(frozen=True)
 class WeightSpec:
-    weight_id: str
-    model: str
-    target: str
-    urls: tuple[str, ...]
-    note: str = ""
-    optional: bool = False
-    archive: bool = False
-    extract_dir: str | None = None
-    expected_outputs: tuple[str, ...] = ()
-    env_url: str | None = None
-    min_bytes: int = 1
-    output_min_bytes: int = 1
+    def __init__(
+        self,
+        weight_id: str,
+        model: str,
+        target: str,
+        urls: Tuple[str, ...],
+        note: str = "",
+        optional: bool = False,
+        archive: bool = False,
+        extract_dir: Optional[str] = None,
+        expected_outputs: Tuple[str, ...] = (),
+        env_url: Optional[str] = None,
+        min_bytes: int = 1,
+        output_min_bytes: int = 1,
+    ) -> None:
+        self.weight_id = weight_id
+        self.model = model
+        self.target = target
+        self.urls = urls
+        self.note = note
+        self.optional = optional
+        self.archive = archive
+        self.extract_dir = extract_dir
+        self.expected_outputs = expected_outputs
+        self.env_url = env_url
+        self.min_bytes = min_bytes
+        self.output_min_bytes = output_min_bytes
 
 
 def hf_url(repo_id: str, filename: str) -> str:
@@ -48,14 +59,14 @@ def hf_url(repo_id: str, filename: str) -> str:
     return f"{DEFAULT_HF_ENDPOINT}/{repo_id}/resolve/main/{quoted}"
 
 
-def sharepoint_urls(url: str) -> tuple[str, ...]:
+def sharepoint_urls(url: str) -> Tuple[str, ...]:
     urls = [f"{url}?download=1"]
     if "/:u:/" in url:
         urls.append(url.replace("/:u:/", "/:u:/download"))
     return tuple(urls)
 
 
-SPECS: tuple[WeightSpec, ...] = (
+SPECS: Tuple[WeightSpec, ...] = (
     WeightSpec(
         "aifs-single-1.1",
         "aifs",
@@ -237,15 +248,15 @@ def build_opener(timeout: int) -> urllib.request.OpenerDirector:
     return opener
 
 
-def resolved_urls(spec: WeightSpec) -> list[str]:
-    urls: list[str] = []
+def resolved_urls(spec: WeightSpec) -> List[str]:
+    urls = []
     if spec.env_url and os.environ.get(spec.env_url):
         urls.append(os.environ[spec.env_url])
     urls.extend(spec.urls)
     return urls
 
 
-def spec_outputs(spec: WeightSpec, root: Path) -> list[Path]:
+def spec_outputs(spec: WeightSpec, root: Path) -> List[Path]:
     if spec.expected_outputs:
         return [root / item for item in spec.expected_outputs]
     return [root / spec.target]
@@ -369,10 +380,10 @@ def normalize_fuxi_layout(fuxi_dir: Path) -> None:
             print(f"  copied {source.relative_to(fuxi_dir)} -> {wanted.name}")
 
 
-def selected_specs(args: argparse.Namespace) -> list[WeightSpec]:
+def selected_specs(args: argparse.Namespace) -> List[WeightSpec]:
     selectors = set(args.only or [])
     excludes = set(args.exclude or [])
-    selected: list[WeightSpec] = []
+    selected = []
     for spec in SPECS:
         if spec.optional and not args.include_optional:
             continue
@@ -422,7 +433,7 @@ def download_spec(
         except (OSError, RuntimeError, zipfile.BadZipFile) as exc:
             print(f"  existing archive could not be reused: {exc}")
 
-    errors: list[str] = []
+    errors = []
     for url in urls:
         try:
             print(f"  source {url}")
@@ -468,7 +479,7 @@ def verify(specs: Iterable[WeightSpec], root: Path) -> bool:
     return ok
 
 
-def parse_args(argv: list[str]) -> argparse.Namespace:
+def parse_args(argv: List[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--weights-root", type=Path, default=DEFAULT_ROOT)
     parser.add_argument("--only", nargs="*", help="Download only these model names or weight ids.")
@@ -483,7 +494,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: Optional[List[str]] = None) -> int:
     args = parse_args(sys.argv[1:] if argv is None else argv)
     root = args.weights_root.expanduser().resolve()
     specs = selected_specs(args)
@@ -500,7 +511,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0 if verify(specs, root) else 1
 
     opener = build_opener(args.timeout)
-    failures: list[str] = []
+    failures = []
     for spec in specs:
         ok = download_spec(spec, root, opener, args)
         if not ok:
