@@ -12,10 +12,22 @@ cd "$ROOT_DIR"
 : "${HF_ENDPOINT:=https://hf-mirror.com}"
 export NWP_WEIGHTS_ROOT
 export HF_ENDPOINT
+export PYTHONUNBUFFERED=1
 
 mkdir -p "$NWP_WEIGHTS_ROOT"
 
-python3 scripts/download_all_weights.py \
+echo "NWP weight download"
+echo "  repo:        $ROOT_DIR"
+if command -v git >/dev/null 2>&1 && git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  echo "  git commit: $(git rev-parse --short HEAD)"
+fi
+echo "  python:      $(command -v python3)"
+echo "  python ver:  $(python3 -V 2>&1)"
+echo "  weights:     $NWP_WEIGHTS_ROOT"
+echo "  HF endpoint: $HF_ENDPOINT"
+echo
+
+python3 -u scripts/download_all_weights.py \
   --weights-root "$NWP_WEIGHTS_ROOT" \
   --continue-on-error \
   "$@"

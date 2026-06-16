@@ -11,6 +11,7 @@ cd "$ROOT_DIR"
 : "${HF_ENDPOINT:=https://hf-mirror.com}"
 export NWP_WEIGHTS_ROOT
 export HF_ENDPOINT
+export PYTHONUNBUFFERED=1
 
 LOG_DIR="${LOG_DIR:-$ROOT_DIR/logs}"
 mkdir -p "$LOG_DIR" "$NWP_WEIGHTS_ROOT"
@@ -32,6 +33,9 @@ echo "  HF endpoint: $HF_ENDPOINT"
 echo
 echo "Monitor:"
 echo "  tail -f '$LOG_FILE'"
+echo
+echo "Run in foreground if you want direct output:"
+echo "  sh scripts/th_hpc4_download_weights.sh"
 echo
 echo "Verify after it exits:"
 echo "  python3 scripts/download_all_weights.py --weights-root '$NWP_WEIGHTS_ROOT' --verify-only"
