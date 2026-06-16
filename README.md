@@ -76,14 +76,16 @@ sh scripts/publish_to_github.sh <OWNER>/<REPO>
 
 Known upstream caveats:
 
-- FengWu weights are linked from PJLab SharePoint public-share URLs and may need
-  browser cookies if SharePoint rejects headless downloads.
+- FengWu weights are downloaded from the Hugging Face `NickGeneva/earth_ai`
+  mirror first, with the original PJLab SharePoint public-share URLs kept as
+  fallbacks.
+- FuXi weights are downloaded from the Hugging Face `NickGeneva/earth_ai`
+  mirror as `fuxi/{short,medium,long}.onnx` plus their same-name ONNX external
+  data files `fuxi/{short,medium,long}`.
 - `src/graphcast/inference_operational.py` expects the operational 13-level
   GraphCast checkpoint, but the public Hugging Face repository checked in
   June 2026 did not list that file. If you have a valid URL, set
   `GRAPHCAST_OPERATIONAL_URL` and run with `--include-optional`.
-- The downloader normalizes FuXi extraction to `fuxi/short.onnx`,
-  `fuxi/medium.onnx`, and `fuxi/long.onnx`, matching the current runners.
 
 ---
 

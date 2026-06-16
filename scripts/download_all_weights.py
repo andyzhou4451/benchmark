@@ -22,6 +22,7 @@ from typing import Iterable, List, Optional, Tuple
 
 DEFAULT_HF_ENDPOINT = os.environ.get("HF_ENDPOINT", "https://huggingface.co").rstrip("/")
 DEFAULT_ROOT = Path(os.environ.get("NWP_WEIGHTS_ROOT", "assets/weights"))
+EARTH_AI_REPO = "NickGeneva/earth_ai"
 
 
 class WeightSpec:
@@ -103,34 +104,77 @@ SPECS: Tuple[WeightSpec, ...] = (
         "fengwu-v1",
         "fengwu",
         "fengwu/fengwu_v1.onnx",
-        sharepoint_urls(
+        (
+            hf_url(EARTH_AI_REPO, "fengwu/fengwu_v1.onnx"),
+        )
+        + sharepoint_urls(
             "https://pjlab-my.sharepoint.cn/:u:/g/personal/chenkang_pjlab_org_cn/"
             "EVA6V_Qkp6JHgXwAKxXIzDsBPIddo5RgDtGCBQ-sQbMmwg"
         ),
-        "ERA5 FengWu ONNX checkpoint. The upstream SharePoint link may require browser cookies.",
-        min_bytes=100_000_000,
+        "ERA5 FengWu ONNX checkpoint; Hugging Face mirror is tried before the upstream SharePoint URL.",
+        min_bytes=1_000_000_000,
     ),
     WeightSpec(
         "fengwu-v2",
         "fengwu",
         "fengwu/fengwu_v2.onnx",
-        sharepoint_urls(
+        (
+            hf_url(EARTH_AI_REPO, "fengwu/fengwu_v2.onnx"),
+        )
+        + sharepoint_urls(
             "https://pjlab-my.sharepoint.cn/:u:/g/personal/chenkang_pjlab_org_cn/"
             "EZkFM7nQcEtBve6MsqlWaeIB_lmpa__hX0I8QYOPzf-X6A"
         ),
-        "HRES/IFS FengWu ONNX checkpoint. The upstream SharePoint link may require browser cookies.",
-        min_bytes=100_000_000,
+        "HRES/IFS FengWu ONNX checkpoint; Hugging Face mirror is tried before the upstream SharePoint URL.",
+        min_bytes=1_000_000_000,
     ),
     WeightSpec(
-        "fuxi-ec",
+        "fuxi-short-onnx",
         "fuxi",
-        "fuxi/FuXi_EC.zip",
-        ("https://zenodo.org/records/10401602/files/FuXi_EC.zip?download=1",),
-        "FuXi ONNX archive from Zenodo; extracted and normalized to fuxi/{short,medium,long}.onnx.",
-        archive=True,
-        extract_dir="fuxi",
-        expected_outputs=("fuxi/short.onnx", "fuxi/medium.onnx", "fuxi/long.onnx"),
-        min_bytes=8_000_000_000,
+        "fuxi/short.onnx",
+        (hf_url(EARTH_AI_REPO, "fuxi/short.onnx"),),
+        "FuXi short-stage ONNX graph. Requires the matching external data file fuxi/short.",
+        min_bytes=10_000_000,
+    ),
+    WeightSpec(
+        "fuxi-short-data",
+        "fuxi",
+        "fuxi/short",
+        (hf_url(EARTH_AI_REPO, "fuxi/short"),),
+        "FuXi short-stage ONNX external data file loaded by short.onnx.",
+        min_bytes=3_000_000_000,
+    ),
+    WeightSpec(
+        "fuxi-medium-onnx",
+        "fuxi",
+        "fuxi/medium.onnx",
+        (hf_url(EARTH_AI_REPO, "fuxi/medium.onnx"),),
+        "FuXi medium-stage ONNX graph. Requires the matching external data file fuxi/medium.",
+        min_bytes=1_000_000,
+    ),
+    WeightSpec(
+        "fuxi-medium-data",
+        "fuxi",
+        "fuxi/medium",
+        (hf_url(EARTH_AI_REPO, "fuxi/medium"),),
+        "FuXi medium-stage ONNX external data file loaded by medium.onnx.",
+        min_bytes=3_000_000_000,
+    ),
+    WeightSpec(
+        "fuxi-long-onnx",
+        "fuxi",
+        "fuxi/long.onnx",
+        (hf_url(EARTH_AI_REPO, "fuxi/long.onnx"),),
+        "FuXi long-stage ONNX graph. Requires the matching external data file fuxi/long.",
+        min_bytes=1_000_000,
+    ),
+    WeightSpec(
+        "fuxi-long-data",
+        "fuxi",
+        "fuxi/long",
+        (hf_url(EARTH_AI_REPO, "fuxi/long"),),
+        "FuXi long-stage ONNX external data file loaded by long.onnx.",
+        min_bytes=3_000_000_000,
     ),
     WeightSpec(
         "graphcast-era5-37",
@@ -380,9 +424,16 @@ def normalize_fuxi_layout(fuxi_dir: Path) -> None:
             print(f"  copied {source.relative_to(fuxi_dir)} -> {wanted.name}")
 
 
+def expand_selectors(items: Optional[List[str]]) -> set:
+    expanded = set(items or [])
+    if "fuxi-ec" in expanded:
+        expanded.add("fuxi")
+    return expanded
+
+
 def selected_specs(args: argparse.Namespace) -> List[WeightSpec]:
-    selectors = set(args.only or [])
-    excludes = set(args.exclude or [])
+    selectors = expand_selectors(args.only)
+    excludes = expand_selectors(args.exclude)
     selected = []
     for spec in SPECS:
         if spec.optional and not args.include_optional:
